@@ -1,6 +1,7 @@
 const express = require("express");
 const parser = require("body-parser");
 const app = express(); //creates an express application
+const routes = express.Router();
 
 /*
  * http is a server that will listen for incoming client requests from the express app
@@ -10,6 +11,8 @@ const http = require("http").Server(app);
 const io = require("socket.io")(http);
 const mongoose = require("mongoose");
 const { post } = require("request");
+const { Message, Link } = require("./models");
+const { type } = require("os");
 
 const uri =
 	"mongodb+srv://tykki:TiffJess05@learning-node.nbzxthb.mongodb.net/?retryWrites=true&w=majority";
@@ -18,19 +21,27 @@ app.use(express.static(__dirname));
 app.use(parser.json());
 app.use(parser.urlencoded({ extended: false }));
 
-const Message = mongoose.model("Message", {
-	name: String,
-	message: String,
-});
-
-/* const messages = [
-	{ name: "Tim", message: "Hi, nice to meet you" },
-	{ name: "Mary", message: "Hello, great seeing you" },
-]; */
+async function addLinks(route) {
+	const link = new Link(route);
+	link.save().then(() => {
+		console.log(`saved new link: ${link}`);
+	});
+}
 
 app.get("/messages", async (req, res) => {
 	const messages = await Message.find({});
 	res.send(messages);
+});
+
+app.get("/messages/:name", async (req, res) => {
+	console.log(`request is ${req.params.name}`);
+	const messages = await Message.find({ name: req.params.name });
+	res.send(messages);
+});
+
+app.get("/links", async (req, res) => {
+	const links = await Link.find({});
+	res.send(links);
 });
 
 async function postRequestHandler(req, res) {
@@ -91,8 +102,16 @@ io.on("connection", (socket) => {
 
 mongoose
 	.connect(uri)
-	.then(() => {
+	.then(async () => {
 		console.log("connected to mongodb");
+		const r = {
+			name: "messages",
+			href: "localhost:3000/messages",
+		};
+		const l = await Link.findOne({ name: "messages" });
+		if (!l) {
+			addLinks(r);
+		}
 	})
 	.catch((err) => {
 		console.log(`Error connecting to db: ${err}`);
